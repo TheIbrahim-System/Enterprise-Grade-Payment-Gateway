@@ -1,0 +1,7 @@
+package com.enterprise.payment.entities;
+
+public enum AuditAction {
+    PAYMENT_CREATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED,
+    REFUND_INITIATED, REFUND_COMPLETED,
+    WEBHOOK_RECEIVED, UNAUTHORIZED_ACCESS
+}
