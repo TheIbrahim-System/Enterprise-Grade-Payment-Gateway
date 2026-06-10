@@ -4,6 +4,7 @@ import com.enterprise.payment.dtos.CreatePaymentRequest;
 import com.enterprise.payment.dtos.PaymentResponse;
 import com.enterprise.payment.entities.AuditAction;
 import com.enterprise.payment.entities.Payment;
+import com.enterprise.payment.exceptions.PaymentException;
 import com.enterprise.payment.repositories.PaymentRepository;
 import com.enterprise.payment.services.PaymentService;
 import com.stripe.StripeClient;
@@ -17,8 +18,11 @@ import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -99,7 +103,7 @@ public class PaymentServiceImp implements PaymentService {
         } catch (Exception ex) {
             recordFailureMetric(request.getCurrency(), "stripe_api_error");
             log.error("Stripe API error for idempotency key {}: {}",ex.getCause(), idempotencyKey, ex.getMessage());
-            throw new RuntimeException("Payment processing failed. Please try again.", ex);
+            throw new PaymentException("Payment processing failed. Please try again.", request.getOrderId());
         }finally {
             timer.stop(meterRegistry.timer("payment.stripe_api_latency",
                     "currency", request.getCurrency()));
@@ -114,16 +118,16 @@ public class PaymentServiceImp implements PaymentService {
                 .status(mapStripeStatus(intent.getStatus()))
                 .idempotencyKey(idempotencyKey)
                 .build();
-        paymentRepository.save(payment);
+       Payment paymentSaved = paymentRepository.save(payment);
 
         // STEP 7: Map response
-        PaymentResponse response = modelMapper.map(intent, PaymentResponse.class);
+        PaymentResponse response = modelMapper.map(paymentSaved, PaymentResponse.class);
 
         // STEP 8: Save idempotency record
         idempotencyService.saveResponse(idempotencyKey, response);
 
         // STEP 9: Audit log
-        auditService.log(AuditAction.PAYMENT_CREATED, String.valueOf(payment.getId()),
+        auditService.log(AuditAction.PAYMENT_CREATED, String.valueOf(paymentSaved.getId()),
                 userId, ipAddress, "PaymentIntent ID: " + intent.getId() + ", Amount: " + request.getAmount() + " " + request.getCurrency());
 
         // STEP 10: Metrics
@@ -146,7 +150,7 @@ public class PaymentServiceImp implements PaymentService {
     public PaymentResponse paymentFallback(CreatePaymentRequest req, Exception ex) {
         log.error("Payment fallback triggered after retries exhausted", ex);
         meterRegistry.counter("payment.fallback.triggered").increment();
-        throw new RuntimeException(
+        throw new PaymentException(req.getOrderId(),
                 "Payment service temporarily unavailable. Please try again.");
     }
 
@@ -182,6 +186,13 @@ public class PaymentServiceImp implements PaymentService {
             case "canceled"           -> Payment.PaymentStatus.CANCELLED;
             default                   -> Payment.PaymentStatus.PENDING;
         };
+    }
+
+    public Page<PaymentResponse> getPaymentById(String id, String name, Pageable pageable) {
+
+        Page<PaymentResponse> payments = paymentRepository.findByUserIdOrderByCreatedAtDesc(id, pageable)
+                .map(payment -> modelMapper.map(payment, PaymentResponse.class));
+        return payments;
     }
 }
 
