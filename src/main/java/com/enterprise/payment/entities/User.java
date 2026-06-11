@@ -51,25 +51,24 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-
         return role.stream()
-                .map(role -> new SimpleGrantedAuthority(role.name()))
+                .map(r -> new SimpleGrantedAuthority("ROLE_" + r.name()))
                 .toList();
     }
 
     @Override
     public boolean isAccountNonExpired() {
-        return false;
+        return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return false;
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return false;
+        return true;
     }
 
     @Override

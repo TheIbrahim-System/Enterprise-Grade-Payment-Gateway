@@ -8,11 +8,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 
 import static com.enterprise.payment.entities.Role.USER;
+import static io.netty.util.CharsetUtil.encoder;
 
 @Service
 @Slf4j
@@ -21,13 +23,14 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
+    private final PasswordEncoder encoder;
 
     public RegisterResponse register(@Valid RegisterRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseGet(() -> {
                     User newUser = User.builder()
                             .username(request.getUsername())
-                            .password(request.getPassword())
+                            .password(encoder.encode(request.getPassword()))// Hash the password!
                             .email(request.getEmail())// In real app, hash this!
                             .firstName(request.getFirstName())
                             .lastName(request.getLastName())
