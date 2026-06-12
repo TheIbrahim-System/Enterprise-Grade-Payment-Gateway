@@ -33,6 +33,8 @@ public class StripeConfig {
      */
     @Bean
     public StripeClient stripeClient() {
+        log.info("Stripe key loaded: {}",
+                secretKey.substring(0,10) + "...");
         return StripeClient.builder()
                 .setApiKey(secretKey)
                 .setConnectTimeout(connectTimeout)

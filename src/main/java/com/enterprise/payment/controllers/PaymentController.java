@@ -52,7 +52,8 @@ public class PaymentController {
         String userId = authentication.getName();
         String ipAddress = extractClientIp(httpRequest);
 
-        PaymentResponse response = paymentService.createPayment(
+        PaymentResponse response
+                = paymentService.createPayment(
                 request, userId, ipAddress);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

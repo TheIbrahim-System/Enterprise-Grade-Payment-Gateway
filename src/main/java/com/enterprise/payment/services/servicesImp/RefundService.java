@@ -69,7 +69,7 @@ public class RefundService {
 
         // Build Stripe refund params
         RefundCreateParams params = RefundCreateParams.builder()
-                .setPaymentIntent(payment.getStripePaymentIntentId())
+               // .setPaymentIntent(payment.getStripePaymentIntentId())
                 .setAmount(refundAmount.movePointRight(2).longValueExact())
                 .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
                 .putMetadata("initiated_by", userId)

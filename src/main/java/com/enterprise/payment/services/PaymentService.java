@@ -7,7 +7,11 @@ public interface PaymentService {
     public PaymentResponse createPayment(CreatePaymentRequest request,
                                          String userId,String ipAddress);
 
-    public PaymentResponse paymentFallback(CreatePaymentRequest req, Exception ex);
+    public PaymentResponse paymentFallback(
+            CreatePaymentRequest req,
+            String userId,
+            String ipAddress,
+            Exception ex);
 
 
 }

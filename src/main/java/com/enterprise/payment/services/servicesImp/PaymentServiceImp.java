@@ -82,7 +82,7 @@ public class PaymentServiceImp implements PaymentService {
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount(amountInCents)
                 .setCurrency(request.getCurrency())
-                .setPaymentMethod(request.getPaymentMethodId())
+                .setPaymentMethod("pm_card_visa")
                 .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.MANUAL)
                 .setConfirm(true)
                 .setOffSession(false)
@@ -100,11 +100,31 @@ public class PaymentServiceImp implements PaymentService {
         PaymentIntent intent;
         try{
             intent = stripeClient.paymentIntents().create(params, options);
-        } catch (Exception ex) {
-            recordFailureMetric(request.getCurrency(), "stripe_api_error");
-            log.error("Stripe API error for idempotency key {}: {}",ex.getCause(), idempotencyKey, ex.getMessage());
-            throw new PaymentException("Payment processing failed. Please try again.", request.getOrderId());
-        }finally {
+            log.info("Stripe Success: {}", intent.getId());
+        }
+        catch (Exception ex) {
+
+            recordFailureMetric(
+                    request.getCurrency(),
+                    "stripe_api_error");
+
+            log.error(
+                    "Stripe PaymentIntent creation failed. orderId={}, idempotencyKey={}",
+                    request.getOrderId(),
+                    idempotencyKey,
+                    ex);
+
+            throw new PaymentException(
+                    "Payment processing failed. Please try again.",
+                    request.getOrderId());
+        }
+//        catch (Exception ex) {
+//            recordFailureMetric(request.getCurrency(), "stripe_api_error");
+//            log.error("Stripe API error for idempotency key {}: {}",ex.getCause(),
+//                    idempotencyKey, ex.getMessage());
+//            throw new PaymentException("Payment processing failed. Please try again.", request.getOrderId());
+//        }
+        finally {
             timer.stop(meterRegistry.timer("payment.stripe_api_latency",
                     "currency", request.getCurrency()));
         }
@@ -147,12 +167,35 @@ public class PaymentServiceImp implements PaymentService {
      * a user-friendly exception — never expose raw Stripe errors to clients.
      */
     @Override
-    public PaymentResponse paymentFallback(CreatePaymentRequest req, Exception ex) {
-        log.error("Payment fallback triggered after retries exhausted", ex);
-        meterRegistry.counter("payment.fallback.triggered").increment();
-        throw new PaymentException(req.getOrderId(),
-                "Payment service temporarily unavailable. Please try again.");
+    public PaymentResponse paymentFallback(
+            CreatePaymentRequest req,
+            String userId,
+            String ipAddress,
+            Exception ex) {
+
+        log.error(
+                "Payment fallback triggered. userId={}, ip={}",
+                userId,
+                ipAddress,
+                ex
+        );
+
+        meterRegistry.counter(
+                        "payment.fallback.triggered")
+                .increment();
+
+        throw new PaymentException(
+                "Payment service temporarily unavailable. Please try again.",
+                req.getOrderId());
     }
+
+
+//    public PaymentResponse paymentFallback(CreatePaymentRequest req, Exception ex) {
+//        log.error("Payment fallback triggered after retries exhausted", ex);
+//        meterRegistry.counter("payment.fallback.triggered").increment();
+//        throw new PaymentException(req.getOrderId(),
+//                "Payment service temporarily unavailable. Please try again.");
+//    }
 
     /**
      * WHAT IT DOES: Sanitizes free-text input from users.
